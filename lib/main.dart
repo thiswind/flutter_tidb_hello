@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mysql_client/mysql_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
 
 void main() {
@@ -60,11 +61,88 @@ class _MyHomePageState extends State<MyHomePage> {
   MySQLConnection? _conn;
   bool _isConnecting = false;
   String _dbStatus = '正在连接数据库...';
+  String? _dbPassword;
 
   @override
   void initState() {
     super.initState();
-    _initDatabase();
+    _checkPasswordAndInit();
+  }
+
+  // 检查密码并初始化
+  Future<void> _checkPasswordAndInit() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPassword = prefs.getString('tidb_password');
+    
+    if (savedPassword == null) {
+      // 首次运行，显示密码输入对话框
+      await _showPasswordDialog();
+    } else {
+      // 已有密码，直接使用
+      _dbPassword = savedPassword;
+      _initDatabase();
+    }
+  }
+
+  // 显示密码输入对话框
+  Future<void> _showPasswordDialog() async {
+    final passwordController = TextEditingController();
+    
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // 用户必须输入密码
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('TiDB 数据库配置'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('请输入 TiDB 数据库密码：'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: '数据库密码',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('确认'),
+              onPressed: () async {
+                final password = passwordController.text.trim();
+                if (password.isNotEmpty) {
+                  // 保存密码
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('tidb_password', password);
+                  
+                  _dbPassword = password;
+                  
+                  // 检查 widget 是否仍然挂载
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    
+                    // 开始数据库连接
+                    _initDatabase();
+                  }
+                } else {
+                  // 显示错误提示
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('请输入有效的密码')),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _ensureTableExists() async {
@@ -98,6 +176,13 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _initDatabase() async {
+    if (_dbPassword == null) {
+      setState(() {
+        _dbStatus = '密码未设置';
+      });
+      return;
+    }
+
     try {
       setState(() {
         _isConnecting = true;
@@ -113,7 +198,7 @@ class _MyHomePageState extends State<MyHomePage> {
         host: "gateway01.eu-central-1.prod.aws.tidbcloud.com",
         port: 4000,
         userName: "3WfrZCWrsZcEjMB.root",
-        password: "CFMTkBcbp1afVeck",
+        password: _dbPassword!, // 使用用户输入的密码
         databaseName: "test",
         secure: true, // TiDB Cloud 需要 SSL 连接
       );
@@ -143,7 +228,7 @@ class _MyHomePageState extends State<MyHomePage> {
             host: "gateway01.eu-central-1.prod.aws.tidbcloud.com",
             port: 4000,
             userName: "3WfrZCWrsZcEjMB.root",
-            password: "CFMTkBcbp1afVeck",
+            password: _dbPassword!, // 使用用户输入的密码
             databaseName: "test",
             secure: false, // 尝试不使用 SSL
           );
@@ -160,15 +245,23 @@ class _MyHomePageState extends State<MyHomePage> {
         } catch (fallbackError) {
           developer.log('备用连接也失败: $fallbackError');
           setState(() {
-            _dbStatus = '数据库连接失败: 权限错误';
+            _dbStatus = '数据库连接失败: 密码错误或网络问题';
           });
           _conn = null;
+          
+          // 密码可能错误，提供重置选项
+          _showPasswordResetOption();
         }
       } else {
         setState(() {
           _dbStatus = '数据库连接失败: $e';
         });
         _conn = null;
+        
+        // 可能是密码错误，提供重置选项
+        if (e.toString().contains('Access denied')) {
+          _showPasswordResetOption();
+        }
       }
     } finally {
       setState(() {
@@ -290,6 +383,17 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 10),
+            // 新增：重置密码按钮
+            if (_dbPassword != null)
+              TextButton.icon(
+                onPressed: _showPasswordResetOption,
+                icon: const Icon(Icons.settings, size: 16),
+                label: const Text('重置数据库密码'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey[600],
+                ),
+              ),
           ],
         ),
       ),
@@ -299,5 +403,36 @@ class _MyHomePageState extends State<MyHomePage> {
         child: const Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
+  }
+
+  // 显示密码重置选项
+  void _showPasswordResetOption() {
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('连接失败'),
+          content: const Text('数据库连接失败，可能是密码错误。是否重新设置密码？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                // 清除保存的密码
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('tidb_password');
+                _dbPassword = null;
+                // 重新显示密码输入对话框
+                await _showPasswordDialog();
+              },
+              child: const Text('重新设置'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }
