@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mysql_client/mysql_client.dart';
+import 'dart:developer' as developer;
 
 void main() {
   runApp(const MyApp());
@@ -82,13 +83,13 @@ class _MyHomePageState extends State<MyHomePage> {
         )
       ''');
       
-      print('事件日志表已确保存在');
+      developer.log('事件日志表已确保存在');
       setState(() {
         _dbStatus = '数据库已就绪';
       });
 
     } catch (e) {
-      print('确保表存在时发生错误: $e');
+      developer.log('确保表存在时发生错误: $e');
       setState(() {
         _dbStatus = '表结构检查失败: $e';
       });
@@ -103,10 +104,10 @@ class _MyHomePageState extends State<MyHomePage> {
         _dbStatus = '正在连接到 TiDB Cloud...';
       });
 
-      print('尝试连接到数据库...');
-      print('Host: gateway01.eu-central-1.prod.aws.tidbcloud.com');
-      print('Port: 4000');
-      print('Database: test');
+      developer.log('尝试连接到数据库...');
+      developer.log('Host: gateway01.eu-central-1.prod.aws.tidbcloud.com');
+      developer.log('Port: 4000');
+      developer.log('Database: test');
 
       _conn = await MySQLConnection.createConnection(
         host: "gateway01.eu-central-1.prod.aws.tidbcloud.com",
@@ -117,9 +118,9 @@ class _MyHomePageState extends State<MyHomePage> {
         secure: true, // TiDB Cloud 需要 SSL 连接
       );
       
-      print('数据库连接对象已创建，正在尝试连接...');
+      developer.log('数据库连接对象已创建，正在尝试连接...');
       await _conn!.connect();
-      print('数据库连接成功！');
+      developer.log('数据库连接成功！');
       
       setState(() {
         _dbStatus = '数据库连接成功，正在检查表结构...';
@@ -128,15 +129,15 @@ class _MyHomePageState extends State<MyHomePage> {
       // 确保表存在且结构正确
       await _ensureTableExists();
       
-      print('数据库连接和表结构检查完成');
+      developer.log('数据库连接和表结构检查完成');
 
     } catch (e) {
-      print('数据库初始化错误: $e');
-      print('错误类型: ${e.runtimeType}');
+      developer.log('数据库初始化错误: $e');
+      developer.log('错误类型: ${e.runtimeType}');
       
       // 尝试替代连接方法
       if (e.toString().contains('Operation not permitted')) {
-        print('检测到权限错误，尝试不使用 SSL 连接...');
+        developer.log('检测到权限错误，尝试不使用 SSL 连接...');
         try {
           _conn = await MySQLConnection.createConnection(
             host: "gateway01.eu-central-1.prod.aws.tidbcloud.com",
@@ -148,7 +149,7 @@ class _MyHomePageState extends State<MyHomePage> {
           );
           
           await _conn!.connect();
-          print('使用非 SSL 连接成功！');
+          developer.log('使用非 SSL 连接成功！');
           
           setState(() {
             _dbStatus = '数据库连接成功（非SSL），正在检查表结构...';
@@ -157,7 +158,7 @@ class _MyHomePageState extends State<MyHomePage> {
           await _ensureTableExists();
           
         } catch (fallbackError) {
-          print('备用连接也失败: $fallbackError');
+          developer.log('备用连接也失败: $fallbackError');
           setState(() {
             _dbStatus = '数据库连接失败: 权限错误';
           });
@@ -198,10 +199,10 @@ class _MyHomePageState extends State<MyHomePage> {
           SnackBar(content: Text('事件已记录: ${now.toString()}')),
         );
       }
-      print('事件已记录到数据库: $now');
+      developer.log('事件已记录到数据库: $now');
       
     } catch (e) {
-      print('记录事件错误: $e');
+      developer.log('记录事件错误: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('记录事件失败: $e')),
