@@ -319,4 +319,4 @@ dev_dependencies:
 **开发环境**: macOS 15.5, Flutter 3.24.3, Xcode  
 **测试设备**: iPhone 12 Pro Max (iOS 18.5)  
 **数据库**: TiDB Cloud (MySQL 兼容)  
-**最后测试**: 2025年1月 - 所有功能正常运行
+**最后测试**: 2025年05月30日 - 所有功能正常运行
