@@ -14,12 +14,14 @@
 
 ## 📱 支持平台
 
-| 平台 | 状态 | 测试设备 |
-|------|------|----------|
-| macOS | ✅ 已测试 | macOS 15.5 |
-| iOS | ✅ 已测试 | iPhone 12 Pro Max (iOS 18.5) |
-| Android | ✅ 支持 | - |
-| Web | ✅ 支持 | Chrome |
+| 平台 | 状态 | 测试设备 | 注意事项 |
+|------|------|----------|----------|
+| macOS | ✅ 已测试 | macOS 15.5 | 完全支持 |
+| iOS | ✅ 已测试 | iPhone 12 Pro Max (iOS 18.5) | 完全支持 |
+| Android | ✅ 支持 | - | 完全支持 |
+| Linux | ✅ 支持 | - | 完全支持 |
+| Windows | ✅ 支持 | - | 完全支持 |
+| Web | ❌ 不支持 | - | mysql_client需要TCP socket连接，Web平台不支持 |
 
 ## 🗄️ 数据库表结构
 
@@ -84,8 +86,8 @@ flutter run -d [device-id]
 # Android
 flutter run -d android
 
-# Web
-flutter run -d chrome
+# Web (不支持 - mysql_client库限制)
+# flutter run -d chrome  # ❌ 不可用
 ```
 
 **生产模式 (Release)：**
@@ -98,6 +100,21 @@ flutter install --device-id [device-id]
 
 # iOS Release 运行
 flutter run --device-id [device-id] --release
+
+# Android Release 构建
+flutter build apk --release
+
+# macOS Release 构建
+flutter build macos --release
+
+# Windows Release 构建
+flutter build windows --release
+
+# Linux Release 构建
+flutter build linux --release
+
+# Web构建 (不推荐 - 运行时会出错)
+# flutter build web  # ❌ 构建成功但运行时失败
 ```
 
 ## 📲 iOS 设备部署说明
@@ -144,13 +161,33 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  mysql_client: ^0.0.27
+  mysql_client: ^0.0.27              # MySQL客户端库
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
 ```
+
+### 🔗 关于 mysql_client 库
+
+**mysql_client ^0.0.27** 是本项目使用的MySQL数据库连接库，具有以下特点：
+
+- **📌 版本说明**: 目前最新版本为 0.0.27 (发布于2022年)
+- **🏗️ 技术特性**: 
+  - 原生Dart编写的MySQL客户端
+  - 支持MySQL 5.7、8.x 和 MariaDB 10.x
+  - 支持TLS/SSL安全连接
+  - 支持连接池和预编译语句
+  - 支持事务处理
+- **🌍 平台兼容性**: 
+  - ✅ **移动端**: iOS、Android (原生socket支持)
+  - ✅ **桌面端**: macOS、Windows、Linux (原生socket支持)  
+  - ❌ **Web端**: 不支持 (Web平台限制socket连接)
+- **🔧 替代方案**: 
+  - Web平台需要通过HTTP API或WebSocket代理连接数据库
+  - 可考虑使用 `mysql1` 库 (但同样不支持Web)
+  - Web端建议使用 REST API + 后端服务的架构
 
 ## 🔧 配置说明
 
@@ -184,6 +221,16 @@ dev_dependencies:
 - **数据库配置**：当前数据库连接信息硬编码在应用中，生产环境建议使用环境变量或配置文件
 - **iOS 部署**：首次在 iOS 设备上运行需要信任开发者证书
 - **版本兼容**：建议使用 Flutter 3.7.2 或更高版本
+- **Web平台限制**：
+  - ❌ mysql_client库不支持Web平台 (socket连接限制)
+  - ⚠️ 如需Web支持，建议采用以下方案：
+    - 使用HTTP API + 后端服务架构
+    - 通过WebSocket代理连接数据库
+    - 使用Firebase或其他Web兼容的数据库服务
+- **数据库兼容性**：
+  - ✅ 支持 MySQL 5.7、8.x
+  - ✅ 支持 MariaDB 10.x  
+  - ✅ 支持 TiDB Cloud (MySQL兼容)
 
 ## 🎯 测试状态
 
